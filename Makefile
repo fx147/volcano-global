@@ -50,6 +50,8 @@ DOCKER_PLATFORMS ?= "linux/${GOARCH}"
 
 GOOS ?= linux
 
+GOPROXY_ARG ?= "https://proxy.golang.org,direct"
+
 include Makefile.def
 
 .EXPORT_ALL_VARIABLES:
@@ -66,11 +68,17 @@ volcano-global-controller-manager: init
 volcano-global-webhook-manager: init
 	CC=${CC} CGO_ENABLED=0 go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/volcano-global-webhook-manager ./cmd/webhook-manager
 
+volcano-global-scheduler: init
+	CC=${CC} CGO_ENABLED=0 go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/volcano-global-scheduler ./cmd/volcano-global-scheduler
+
 images:
 	set -e; \
 	for name in controller-manager webhook-manager; do \
 		docker buildx build -t "${IMAGE_PREFIX}/volcano-global-$$name:$(TAG)" . -f ./installer/dockerfile/$$name/Dockerfile --output=type=${BUILDX_OUTPUT_TYPE} --platform ${DOCKER_PLATFORMS} --build-arg APK_MIRROR=${APK_MIRROR}; \
 	done
+
+scheduler-image: volcano-global-scheduler
+	docker buildx build -t "${IMAGE_PREFIX}/volcano-global-scheduler:$(TAG)" . -f ./installer/dockerfile/scheduler/Dockerfile --output=type=${BUILDX_OUTPUT_TYPE} --platform ${DOCKER_PLATFORMS} --build-arg APK_MIRROR=${APK_MIRROR} --build-arg GOPROXY_ARG=${GOPROXY_ARG}
 
 clean:
 	rm -rf _output/

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-scheduler-test
+  namespace: karmada-system
+  labels:
+    app: my-scheduler-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-scheduler-test
+  template:
+    metadata:
+      labels:
+        app: my-scheduler-test
+    spec:
+      automountServiceAccountToken: false
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+      containers:
+        - name: my-scheduler-test
+          image: docker.io/my-scheduler-test/volcano-global-scheduler:v0.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10351
+              scheme: HTTP
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          command:
+            - /bin/volcano-global-scheduler
+            - --kubeconfig=/etc/karmada/config/karmada.config
+            - --health-probe-bind-address=0.0.0.0:10351
+            - --enable-scheduler-estimator=false
+            - --leader-elect-resource-name=my-scheduler-test # Your custom scheduler name
+            - --scheduler-name=my-scheduler-test # Your custom scheduler name
+            - --v=4
+          volumeMounts:
+            - name: karmada-config
+              mountPath: /etc/karmada/config
+      volumes:
+        - name: karmada-config
+          secret:
+            secretName: karmada-scheduler-config

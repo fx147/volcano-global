@@ -14,11 +14,16 @@
 
 FROM golang:1.22.11 AS builder
 WORKDIR /go/src/volcano.sh/
+ARG GOPROXY_ARG="https://proxy.golang.org,direct"
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go env -w GOPROXY=${GOPROXY_ARG} && go mod download
 ADD . volcano-global
 RUN cd volcano-global && make volcano-global-scheduler
 
 FROM alpine:latest
-COPY --from=builder /go/src/volcano.sh/volcano-global/_output/bin/volcano-global-scheduler /bin/karmada-scheduler
-ENTRYPOINT ["/bin/karmada-scheduler"]
+COPY --from=builder /go/src/volcano.sh/volcano-global/_output/bin/volcano-global-scheduler /bin/volcano-global-scheduler
+ENTRYPOINT ["/bin/volcano-global-scheduler"]
+
+# Provide default command-line arguments.
+# These can be easily overridden by 'args' in the Kubernetes Pod spec.
+CMD ["--v=2"]
